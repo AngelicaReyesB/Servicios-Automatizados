@@ -1,0 +1,94 @@
+{{define "content"}}
+<h1 class="module-title"><span class="ico" aria-hidden="true">⇄</span> Balanceador de carga</h1>
+
+{{template "result" .}}
+
+{{if not .BalConfigured}}
+<section class="panel">
+  <p class="warn-text">Este módulo necesita el objetivo «haproxy» en config.json (VM del balanceador).</p>
+</section>
+{{else}}
+<div class="panels">
+  <section class="panel">
+    <h3>VM del balanceador</h3>
+    <p>IP: <code>{{.BalIP}}</code> · canal: <strong>{{.BalChannel}}</strong></p>
+    {{if .BalView.Version}}<p>{{.BalView.Version}} · estado: <span class="badge {{if eq .BalView.Active "active"}}on{{else}}bad{{end}}">{{.BalView.Active}}</span></p>{{end}}
+    {{if .BalError}}<p class="warn-text">{{.BalError}}</p>{{end}}
+    {{if not .BalSSHReady}}
+    <p class="hint">Esta VM todavía se maneja por Guest Additions. Si se clonó después de configurar la llave de root, la misma llave sirve: pulse el botón para pasar a SSH.</p>
+    <form method="post" action="/balanceador/conectar" class="js-busy">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <div class="row"><button class="btn blue">Conectar por SSH con la llave de root</button></div>
+      <p class="busy" hidden>Comprobando acceso por SSH…</p>
+    </form>
+    {{end}}
+    <p class="hint">Frontend administrado por la consola: <code>*:80</code> con reparto <code>roundrobin</code>. Cada cambio se valida con <code>haproxy -c</code> antes de recargar y, si falla, se restaura la configuración anterior.</p>
+  </section>
+
+  <section class="panel">
+    <h3>Agregar servidor al back-end</h3>
+    <form method="post" action="/balanceador/agregar" class="js-busy">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <label for="b-name">Nombre del servidor</label>
+      <input id="b-name" name="name" value="{{.Backend.Name}}" placeholder="p. ej. web1" required maxlength="32" autocomplete="off" spellcheck="false">
+      <label for="b-ip">Dirección IP</label>
+      <input id="b-ip" name="ip" value="{{.Backend.IP}}" placeholder="p. ej. 192.168.1.10" required maxlength="15" autocomplete="off" spellcheck="false">
+      <label for="b-port">Puerto</label>
+      <input id="b-port" name="port" type="number" min="1" max="65535" value="{{.Backend.Port}}" required>
+      <div class="row"><button class="btn green">Agregar servidor</button></div>
+      <p class="busy" hidden>Validando y recargando HAProxy…</p>
+    </form>
+  </section>
+
+  <section class="panel wide">
+    <h3>Servidores del back-end</h3>
+    {{if .BalView.Servers}}
+    <table class="services">
+      <thead><tr><th>Nombre</th><th>Dirección</th><th>Acciones</th></tr></thead>
+      <tbody>
+      {{range .BalView.Servers}}
+      <tr>
+        <td><strong>{{.Name}}</strong></td>
+        <td><code>{{.IP}}:{{.Port}}</code></td>
+        <td>
+          <form method="post" action="/balanceador/eliminar" class="js-busy inline" data-confirm="Se quitará «{{.Name}}» del back-end. ¿Desea continuar?">
+            <input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="name" value="{{.Name}}">
+            <button class="btn small red">Eliminar</button>
+          </form>
+        </td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+    <p class="hint">Para ver el reparto: abra <code>http://{{.BalIP}}</code> varias veces (o <code>curl http://{{.BalIP}}</code>) y observe qué servidor responde.</p>
+    {{else}}
+    <p class="hint">El back-end no tiene servidores{{if not .BalView.Managed}} (la consola aún no ha creado su bloque en haproxy.cfg){{end}}.</p>
+    {{end}}
+  </section>
+</div>
+{{end}}
+
+<section class="log">
+  <h3>Registro de operaciones recientes</h3>
+  {{range .Logs}}
+  <details class="entry {{if .OK}}ok{{else}}error{{end}}">
+    <summary>{{fmtTime .Time}} · {{.Operation}} · {{if .Channel}}{{.Channel}} · {{end}}{{if .OK}}OK{{else}}ERROR{{end}} ({{.DurationMS}} ms)</summary>
+    <pre>Código de salida: {{.ExitCode}}
+{{if .Error}}
+--- error de comunicación ---
+{{.Error}}
+{{end}}{{if .Stdout}}
+--- stdout ---
+{{.Stdout}}
+{{end}}{{if .Stderr}}
+--- stderr ---
+{{.Stderr}}
+{{end}}
+--- script ejecutado ---
+{{.Script}}</pre>
+  </details>
+  {{else}}
+  <p class="hint">Aún no hay operaciones en esta sesión.</p>
+  {{end}}
+</section>
+{{end}}

@@ -1,0 +1,110 @@
+{{define "content"}}
+<h1 class="module-title"><span class="ico" aria-hidden="true">⚙</span> Preparación del sistema</h1>
+
+{{template "result" .}}
+
+<div class="panels">
+  <section class="panel">
+    <h3>Instalar aplicación</h3>
+    <form method="post" action="/preparacion/paquete" class="js-busy">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <label for="pkg">Nombre del paquete</label>
+      <input id="pkg" name="name" value="{{.Package}}" placeholder="p. ej. htop" required maxlength="100" autocomplete="off" spellcheck="false">
+      <div class="row">
+        <button class="btn green" name="action" value="install">Instalar</button>
+        <button class="btn red" name="action" value="remove">Eliminar</button>
+      </div>
+      <p class="busy" hidden>Ejecutando en la VM… puede tardar unos minutos.</p>
+    </form>
+  </section>
+
+  <section class="panel">
+    <h3>Configuración de llaves</h3>
+    <p class="hint">Crea el par de llaves SSH (ed25519) de root, autoriza la llave pública en la VM y bloquea el acceso por usuario y contraseña.</p>
+    <p class="warn-text">Únicamente usuario root</p>
+    {{if .KeyExists}}<p class="ok-text">Llave configurada · huella {{.KeyFingerprint}}</p>{{end}}
+    <form method="post" action="/preparacion/llaves" class="js-busy" data-confirm="{{if .KeyExists}}Ya existe una llave configurada. Si genera otra, la anterior dejará de funcionar. ¿Desea continuar?{{end}}">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <div class="row">
+        <button class="btn blue">Generar y configurar llaves SSH</button>
+      </div>
+      <p class="busy" hidden>Configurando SSH en la VM… puede tardar unos segundos.</p>
+    </form>
+    <h4>Descargar llave privada</h4>
+    <form method="post" action="/preparacion/llaves/descargar">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <button class="btn blue" {{if not .KeyExists}}disabled{{end}}>Descargar</button>
+    </form>
+    <div class="notice">
+      <strong>Uso correcto de la llave privada</strong>
+      <ul>
+        <li>Es la única forma de entrar como root por SSH: trátela como una contraseña.</li>
+        <li>Guárdela en un lugar privado de su equipo. No la comparta, no la envíe por correo o chat y no la suba a repositorios.</li>
+        <li>Úsela solo desde equipos de confianza: <code>ssh -i id_ed25519_root root@{{.IP}}</code></li>
+        <li>Restrinja sus permisos. Linux/macOS: <code>chmod 600 id_ed25519_root</code>. Windows: <code>icacls id_ed25519_root /inheritance:r /grant:r "%USERNAME%:R"</code></li>
+        <li>Si sospecha que se expuso, genere otra con este mismo botón: la anterior deja de funcionar.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h3>Personalización del sistema</h3>
+    <p class="hint">Configura el aviso que la consola de la VM muestra antes del «login:» (/etc/issue).</p>
+    <form method="post" action="/preparacion/issue" class="js-busy">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <label class="check"><input type="checkbox" name="host" value="1" {{if .Issue.Host}}checked{{end}}> Nombre del host</label>
+      <label class="check"><input type="checkbox" name="date" value="1" {{if .Issue.Date}}checked{{end}}> Fecha actual</label>
+      <label class="check"><input type="checkbox" name="time" value="1" {{if .Issue.Time}}checked{{end}}> Hora actual</label>
+      <label class="check"><input type="checkbox" name="ip" value="1" {{if .Issue.IP}}checked{{end}}> Dirección IP</label>
+      <label class="check"><input type="checkbox" name="os" value="1" {{if .Issue.OS}}checked{{end}}> Sistema operativo</label>
+      <label class="check"><input type="checkbox" name="kernel" value="1" {{if .Issue.Kernel}}checked{{end}}> Versión del kernel</label>
+      <label class="check"><input type="checkbox" name="arch" value="1" {{if .Issue.Arch}}checked{{end}}> Arquitectura</label>
+      <label class="check"><input type="checkbox" name="tty" value="1" {{if .Issue.TTY}}checked{{end}}> Terminal</label>
+      <label class="check"><input type="checkbox" name="users" value="1" {{if .Issue.Users}}checked{{end}}> Usuarios conectados</label>
+      <label for="msg-issue">Mensaje personalizado</label>
+      <input id="msg-issue" name="message" value="{{.Issue.Message}}" maxlength="200" placeholder="p. ej. Acceso solo para personal autorizado" autocomplete="off">
+      <div class="row">
+        <button class="btn green">Aplicar</button>
+      </div>
+      <p class="busy" hidden>Ejecutando en la VM…</p>
+    </form>
+  </section>
+
+  <section class="panel">
+    <h3>Asignar nombre de host</h3>
+    <form method="post" action="/preparacion/hostname" class="js-busy">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <label for="host">Nombre de host</label>
+      <input id="host" name="hostname" value="{{.Hostname}}" placeholder="p. ej. app-web1" required maxlength="63" autocomplete="off" spellcheck="false">
+      <div class="row">
+        <button class="btn green">Aplicar cambios</button>
+      </div>
+      <p class="busy" hidden>Ejecutando en la VM…</p>
+    </form>
+  </section>
+</div>
+
+<section class="log">
+  <h3>Registro de operaciones recientes</h3>
+  {{range .Logs}}
+  <details class="entry {{if .OK}}ok{{else}}error{{end}}">
+    <summary>{{fmtTime .Time}} · {{.Operation}} · {{if .Channel}}{{.Channel}} · {{end}}{{if .OK}}OK{{else}}ERROR{{end}} ({{.DurationMS}} ms)</summary>
+    <pre>Código de salida: {{.ExitCode}}
+{{if .Error}}
+--- error de comunicación ---
+{{.Error}}
+{{end}}{{if .Stdout}}
+--- stdout ---
+{{.Stdout}}
+{{end}}{{if .Stderr}}
+--- stderr ---
+{{.Stderr}}
+{{end}}
+--- script ejecutado ---
+{{.Script}}</pre>
+  </details>
+  {{else}}
+  <p class="hint">Aún no hay operaciones en esta sesión. El registro completo se guarda en data/logs/operaciones.jsonl.</p>
+  {{end}}
+</section>
+{{end}}

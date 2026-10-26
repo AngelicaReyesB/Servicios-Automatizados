@@ -1,0 +1,22 @@
+{
+  "listen": "127.0.0.1:8080",
+  "vboxmanage": "C:\\Program Files\\Oracle\\VirtualBox\\VBoxManage.exe",
+  "dataDir": "data",
+  "authors": "Nombre Apellido - Nombre Apellido",
+  "targets": {
+    "main": {
+      "vmName": "debian-main",
+      "ip": "192.168.1.50",
+      "sshPort": 22,
+      "guestUser": "root",
+      "guestPassword": "CAMBIAR"
+    },
+    "haproxy": {
+      "vmName": "debian-haproxy",
+      "ip": "192.168.1.60",
+      "sshPort": 22,
+      "guestUser": "root",
+      "guestPassword": "CAMBIAR"
+    }
+  }
+}

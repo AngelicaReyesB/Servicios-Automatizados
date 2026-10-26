@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{.Title}} · Consola de automatización de servicios</title>
+<link rel="stylesheet" href="/static/style.css">
+<script src="/static/app.js" defer></script>
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="/">
+    <svg class="cloud" viewBox="0 0 64 40" aria-hidden="true"><path d="M16 36h32a10 10 0 0 0 2-19.8A14 14 0 0 0 23 13 11.5 11.5 0 0 0 16 36z"/></svg>
+    <span><strong>Consola de automatización de servicios</strong><small>Computación en la nube 2026 - 2</small></span>
+  </a>
+  <div class="channel" title="Máquina virtual {{.VMName}} ({{.IP}})">
+    <span class="dot {{if .SSHReady}}ok{{else}}warn{{end}}"></span>
+    VM {{.VMName}} · canal: {{.Channel}}
+  </div>
+</header>
+<main>
+{{template "content" .}}
+</main>
+<footer>{{.Authors}}</footer>
+</body>
+</html>
+
+{{define "result"}}{{with .Result}}
+<section class="result {{if .OK}}ok{{else}}error{{end}}" role="status">
+  <h2>{{.Title}}</h2>
+  <p>{{.Message}}</p>
+  {{if .Preview}}<p>Vista previa del aviso de inicio de sesión:</p><pre class="preview">{{.Preview}}</pre>{{end}}
+  {{if .DownloadUser}}<form method="post" action="/usuarios/llaves/descargar">
+    <input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="name" value="{{.DownloadUser}}">
+    <button class="btn blue">Descargar llave privada de {{.DownloadUser}}</button>
+  </form>{{end}}
+  {{if .Detail}}<details><summary>Detalle técnico</summary><pre>{{.Detail}}</pre></details>{{end}}
+</section>
+{{end}}{{end}}

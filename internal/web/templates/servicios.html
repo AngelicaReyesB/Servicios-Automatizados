@@ -1,0 +1,89 @@
+{{define "content"}}
+<h1 class="module-title"><span class="ico" aria-hidden="true">☰</span> Gestión de servicios</h1>
+
+{{template "result" .}}
+
+<div class="panels">
+  <section class="panel">
+    <h3>Desplegar aplicación como servicio</h3>
+    <p class="hint">Sube el ejecutable a la VM (/opt/&lt;nombre&gt;), crea un usuario sin privilegios que lo ejecuta, ajusta permisos y registra la unidad de systemd.</p>
+    <form method="post" action="/servicios/desplegar" enctype="multipart/form-data" class="js-busy">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <label for="s-name">Nombre del servicio</label>
+      <input id="s-name" name="name" value="{{.Deploy.Name}}" placeholder="p. ej. catalogo-libros" required maxlength="31" autocomplete="off" spellcheck="false">
+      <label for="s-exec">Archivo ejecutable (binario de Linux o script con #!)</label>
+      <input id="s-exec" type="file" name="exec" required>
+      <label for="s-extra">Archivos adicionales (opcional: .zip, .tar.gz o .tgz con plantillas, estáticos, etc.)</label>
+      <input id="s-extra" type="file" name="extra" accept=".zip,.tar.gz,.tgz">
+      <label for="s-kind">Tipo de servicio</label>
+      <select id="s-kind" name="kind">
+        <option value="simple" {{if eq .Deploy.Kind "simple"}}selected{{end}}>Permanece en ejecución (p. ej. catálogo de libros)</option>
+        <option value="oneshot" {{if eq .Deploy.Kind "oneshot"}}selected{{end}}>Se ejecuta una vez y termina (p. ej. script de fecha y hora)</option>
+      </select>
+      <label for="s-args">Argumentos (opcional)</label>
+      <input id="s-args" name="args" value="{{.Deploy.Args}}" placeholder="p. ej. -port 8080" maxlength="200" autocomplete="off" spellcheck="false">
+      <div class="row">
+        <button class="btn green">Desplegar</button>
+      </div>
+      <p class="busy" hidden>Transfiriendo y configurando en la VM… puede tardar.</p>
+    </form>
+  </section>
+
+  <section class="panel wide">
+    <h3>Servicios administrados</h3>
+    {{if .ServicesError}}<p class="warn-text">No se pudo consultar la VM: {{.ServicesError}}</p>{{end}}
+    {{if .Services}}
+    <table class="services">
+      <thead><tr><th>Servicio</th><th>Estado</th><th>Arranque</th><th>Acciones</th></tr></thead>
+      <tbody>
+      {{range .Services}}
+      <tr>
+        <td><strong>{{.Name}}</strong></td>
+        <td><span class="badge {{if eq .Active "active"}}on{{else if eq .Active "failed"}}bad{{end}}">{{.Active}}</span></td>
+        <td>{{.Enabled}}</td>
+        <td>
+          <form method="post" action="/servicios/accion" class="js-busy inline">
+            <input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="name" value="{{.Name}}">
+            {{range $.Actions}}<button class="btn small blue" name="action" value="{{.}}">{{.}}</button>{{end}}
+          </form>
+          <form method="post" action="/servicios/eliminar" class="js-busy inline" data-confirm="Se detendrá y eliminará el servicio «{{.Name}}». ¿Desea continuar?">
+            <input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="name" value="{{.Name}}">
+            <label class="check inline"><input type="checkbox" name="rmfiles" value="1"> borrar archivos y usuario</label>
+            <button class="btn small red">Eliminar</button>
+          </form>
+        </td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+    {{else}}
+    <p class="hint">Aún no hay servicios desplegados con esta consola.</p>
+    {{end}}
+    <p class="hint">Solo se pueden gestionar los servicios que despliega esta consola; los del sistema (como ssh) no se tocan.</p>
+  </section>
+</div>
+
+<section class="log">
+  <h3>Registro de operaciones recientes</h3>
+  {{range .Logs}}
+  <details class="entry {{if .OK}}ok{{else}}error{{end}}">
+    <summary>{{fmtTime .Time}} · {{.Operation}} · {{if .Channel}}{{.Channel}} · {{end}}{{if .OK}}OK{{else}}ERROR{{end}} ({{.DurationMS}} ms)</summary>
+    <pre>Código de salida: {{.ExitCode}}
+{{if .Error}}
+--- error de comunicación ---
+{{.Error}}
+{{end}}{{if .Stdout}}
+--- stdout ---
+{{.Stdout}}
+{{end}}{{if .Stderr}}
+--- stderr ---
+{{.Stderr}}
+{{end}}
+--- script ejecutado ---
+{{.Script}}</pre>
+  </details>
+  {{else}}
+  <p class="hint">Aún no hay operaciones en esta sesión.</p>
+  {{end}}
+</section>
+{{end}}
